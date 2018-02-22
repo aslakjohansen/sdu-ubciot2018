@@ -1,0 +1,124 @@
+#!/usr/bin/env ipython3
+
+from wrapping import *
+
+g = model()
+
+###############################################################################
+################################################################# building ####
+
+building = N['/building']
+g.add((building, RDF.type, BRICK['Building']))
+
+###############################################################################
+################################################################### floors ####
+
+floors = []
+for floor_number in range(2):
+    floor = N['building/floors/%u' % floor_number]
+    g.add((floor, RDF.type, BRICK['Floor']))
+    g.add((building, BRICKFRAME.contains, floor))
+    floors.append(floor)
+
+###############################################################################
+############################################################# room mapping ####
+
+rooms = {
+    'room 1': {
+        'floor': 0,
+        'temp-sensor':   'd0fcec33-af08-44a8-b74b-7a51f1902d13',
+        'temp-actuator': '5c2e2bdb-5142-464d-ad91-ae483633dfd6',
+        'temp-setpoint': 'c087d1ba-03f6-4c60-85de-b95d82e63248',
+    },
+    'room 2': {
+        'floor': 1,
+        'temp-sensor':   '18407632-8e81-4bb9-ae77-4ecc96f30f46',
+        'temp-actuator': 'ec883cad-3235-46d5-a901-7bae169dda0a',
+        'temp-setpoint': 'd2b54605-58b1-44ef-89f9-0a9adabbfbb1',
+    },
+    'room 3': {
+        'floor': 1,
+        'temp-sensor':   'e528f733-2e3a-4f65-93aa-6fb2e36d4b27',
+        'temp-actuator': '9be52aed-0e12-49b5-8680-47778b9b2adf',
+        'temp-setpoint': 'd2b54605-58b1-44ef-89f9-0a9adabbfbb1',
+    },
+}
+
+###############################################################################
+#################################################################### rooms ####
+
+roommap = {}
+for roomname in rooms:
+    data = rooms[roomname]
+    room = N['building/rooms/%s' % roomname.replace(' ', '_')]
+    g.add((room, RDF.type, BRICK['Room']))
+    g.add((room, BRICKFRAME.label, Literal(roomname)))
+    g.add((floors[data['floor']], BRICKFRAME.contains, room))
+    roommap[roomname] = room
+
+###############################################################################
+####################################################### temperature points ####
+
+for roomname in rooms:
+    data = rooms[roomname]
+    room = roommap[roomname]
+    
+    sensor = N['building/rooms/%s/temp-sensor' % roomname.replace(' ', '_')]
+    g.add((sensor, RDF.type, BRICK['Temperature_Sensor']))
+    g.add((sensor, BRICKFRAME.label, Literal(data['temp-sensor'])))
+    g.add((sensor, BRICKFRAME.pointOf, room))
+    
+    setpoint = N['building/rooms/%s/temp-setpoint' % roomname.replace(' ', '_')]
+    g.add((setpoint, RDF.type, BRICK['Temperature_Setpoint']))
+    g.add((setpoint, BRICKFRAME.label, Literal(data['temp-setpoint'])))
+    g.add((setpoint, BRICKFRAME.pointOf, room))
+    
+    actuator = N['building/rooms/%s/temp-actuator' % roomname.replace(' ', '_')]
+    g.add((actuator, RDF.type, BRICK['Radiator_Valve_Position']))
+    g.add((actuator, BRICKFRAME.label, Literal(data['temp-actuator'])))
+    g.add((actuator, BRICKFRAME.pointOf, room))
+
+###############################################################################
+########################################################### dashbard query ####
+
+q_dashboard = \
+'''
+SELECT DISTINCT ?room_name ?sensor_uuid
+WHERE {
+    ?room     rdf:type/bf:subClassOf* brick:Room .
+    ?sensor   rdf:type/bf:subClassOf* brick:Temperature_Sensor .
+    
+    ?sensor   bf:pointOf ?room .
+    
+    ?room     bf:label ?room_name .
+    ?sensor   bf:label ?sensor_uuid .
+}
+'''
+pprint(query(g, q_dashboard))
+
+###############################################################################
+######################################################### thermostat query ####
+
+q_thermostat = \
+'''
+SELECT DISTINCT ?room_name ?sensor_uuid ?setpoint_uuid ?actuator_uuid
+WHERE {
+    ?room     rdf:type/bf:subClassOf* brick:Room .
+    ?sensor   rdf:type/bf:subClassOf* brick:Temperature_Sensor .
+    ?setpoint rdf:type/bf:subClassOf* brick:Temperature_Setpoint .
+    ?actuator rdf:type/bf:subClassOf* brick:Radiator_Valve_Position .
+    
+    ?sensor   bf:pointOf ?room .
+    ?setpoint bf:pointOf ?room .
+    ?actuator bf:pointOf ?room .
+    
+    ?room     bf:label ?room_name .
+    ?sensor   bf:label ?sensor_uuid .
+    ?setpoint bf:label ?setpoint_uuid .
+    ?actuator bf:label ?actuator_uuid .
+}
+'''
+pprint(query(g, q_thermostat))
+
+###############################################################################
+###############################################################################
