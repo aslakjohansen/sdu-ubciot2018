@@ -10,6 +10,6 @@ This repository contains the code for the demo from the semantics lecture.
 ## Demo Execution
 
 ```shell
-./demo
+cd src ; ./demo
 ```
 
