@@ -2,6 +2,8 @@
 
 from wrapping import *
 
+TTL_FILENAME = '../var/building.ttl'
+
 g = model()
 
 ###############################################################################
@@ -77,6 +79,14 @@ for roomname in rooms:
     g.add((actuator, RDF.type, BRICK['Radiator_Valve_Position']))
     g.add((actuator, BRICKFRAME.label, Literal(data['temp-actuator'])))
     g.add((actuator, BRICKFRAME.pointOf, room))
+
+###############################################################################
+########################## store-load cycle to simulate applications split ####
+
+g.serialize(TTL_FILENAME, 'turtle')
+del g
+g = Graph()
+g.parse(TTL_FILENAME, format='turtle')
 
 ###############################################################################
 ########################################################### dashbard query ####
